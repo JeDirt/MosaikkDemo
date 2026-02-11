@@ -29,7 +29,7 @@ protected:
 	void AddMosaikkButton_RESERVED(FToolBarBuilder& ToolbarBuilder);
 	void OnMosaikkButtonClicked_RESERVED();
 
-	TSharedRef<SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
+	TSharedRef<SDockTab> OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs);
 
 private:
 	/**

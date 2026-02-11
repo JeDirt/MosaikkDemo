@@ -16,35 +16,6 @@
 
 #define LOCTEXT_NAMESPACE "FMosaikkTrackEditor"
 
-struct FMosaikkSection : public ISequencerSection, public FGCObject
-{
-	FMosaikkSection(UMovieSceneSection* InSection)
-		: Section(InSection)
-	{}
-
-	virtual UMovieSceneSection* GetSectionObject() override
-	{
-		return Section;
-	}
-
-	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override
-	{
-		return Painter.PaintSectionBackground();
-	}
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		Collector.AddReferencedObject(Section);
-	}
-
-	virtual FString GetReferencerName() const override
-	{
-		return TEXT("FMosaikkSection");
-	}
-
-	TObjectPtr<UMovieSceneSection> Section;
-};
-
 TSharedRef<SWidget> CreateWidgetAssetPicker(FOnAssetSelected OnAssetSelected, FOnAssetEnterPressed OnAssetEnterPressed, TWeakPtr<ISequencer> InSequencer)
 {
 	const TSharedPtr<ISequencer> Sequencer = InSequencer.Pin();
@@ -74,6 +45,21 @@ TSharedRef<SWidget> CreateWidgetAssetPicker(FOnAssetSelected OnAssetSelected, FO
 		[
 			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
 		];
+}
+
+UMovieSceneSection* FMosaikkSection::GetSectionObject()
+{
+	return &Section;
+}
+
+int32 FMosaikkSection::OnPaintSection(FSequencerSectionPainter& Painter) const
+{
+	return Painter.PaintSectionBackground();
+}
+
+TSharedRef<SWidget> FMosaikkSection::GenerateSectionWidget()
+{
+	return ISequencerSection::GenerateSectionWidget();
 }
 
 FMosaikkTrackEditor::FMosaikkTrackEditor(TSharedRef<ISequencer> InSequencer) : FMovieSceneTrackEditor(InSequencer)
@@ -115,7 +101,10 @@ bool FMosaikkTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 
 TSharedRef<ISequencerSection> FMosaikkTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
-	return MakeShared<FMosaikkSection>(&SectionObject);
+	UMosaikkSection* MosaikkSection = Cast<UMosaikkSection>(&SectionObject);
+	check( SupportsType( SectionObject.GetOuter()->GetClass() ) && MosaikkSection != nullptr );
+
+	return MakeShareable( new FMosaikkSection( *MosaikkSection ) );
 }
 
 void FMosaikkTrackEditor::AddMosaikkTrackSubMenuRoot(FMenuBuilder& MenuBuilder, TArray<FGuid>)

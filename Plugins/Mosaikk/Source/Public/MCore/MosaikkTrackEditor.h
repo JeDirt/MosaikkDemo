@@ -2,7 +2,21 @@
 
 #include "MovieSceneTrackEditor.h"
 
+class UMosaikkSection;
 class FMenuBuilder;
+
+struct FMosaikkSection : public ISequencerSection, public TSharedFromThis<FMosaikkSection>
+{
+	FMosaikkSection(UMosaikkSection& InSection) : Section(InSection) { }
+
+	// ISequencerSectionInterface
+	virtual UMovieSceneSection* GetSectionObject() override;
+	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
+	virtual TSharedRef<SWidget> GenerateSectionWidget() override;
+	// ~End ISequencerSectionInterface
+
+	UMosaikkSection& Section;
+};
 
 class FMosaikkTrackEditor : public FMovieSceneTrackEditor
 {
