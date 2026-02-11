@@ -29,8 +29,7 @@ protected:
 	void AddMosaikkButton_RESERVED(FToolBarBuilder& ToolbarBuilder);
 	void OnMosaikkButtonClicked_RESERVED();
 
-	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
-	
+	TSharedRef<SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
 
 private:
 	/**
@@ -49,5 +48,5 @@ private:
 	FDelegateHandle SequencerClosedHandle;
 	FDelegateHandle PostPIEStartedHandle;
 
-	TSharedPtr<class FUICommandList> PluginCommands;
+	TSharedPtr<FUICommandList> PluginCommands;
 };
