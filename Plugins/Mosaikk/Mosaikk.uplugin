@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Mosaikk",
+	"Description": "",
+	"Category": "Other",
+	"CreatedBy": "Denys Martyniuk",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "Mosaikk",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
