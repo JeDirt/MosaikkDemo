@@ -5,6 +5,8 @@
 #include "Blueprint/UserWidget.h"
 #include "EntitySystem/BuiltInComponentTypes.h"
 
+#include "MCore/MosaikkMovieSceneComponentTypes.h"
+
 #include "MSequencer/MosaikkTrackInstance.h"
 
 UMosaikkSection::UMosaikkSection(const FObjectInitializer& ObjInit) : Super(ObjInit)
@@ -39,10 +41,12 @@ void UMosaikkSection::ImportEntityImpl(
 	using namespace UE::MovieScene;
 
 	const FBuiltInComponentTypes* BuiltInComponents = FBuiltInComponentTypes::Get();
-
+	const FMosaikkMovieSceneTracksComponentTypes& MosaikkComponents = FMosaikkMovieSceneTracksComponentTypes::Get();
 	FGuid ObjectBindingID = Params.GetObjectBindingID();
+
 	OutImportedEntity->AddBuilder(
 		FEntityBuilder()
+		.Add(MosaikkComponents.Mosaikk, FMovieSceneMosaikkComponentData { this })
 		.Add(BuiltInComponents->TrackInstance, FMovieSceneTrackInstanceComponent{ decltype(FMovieSceneTrackInstanceComponent::Owner)(this), UMosaikkTrackInstance::StaticClass() })
 		.AddConditional(BuiltInComponents->GenericObjectBinding, ObjectBindingID, ObjectBindingID.IsValid())
 		.AddTagConditional(BuiltInComponents->Tags.Root, !ObjectBindingID.IsValid())
