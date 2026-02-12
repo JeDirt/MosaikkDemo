@@ -76,3 +76,5 @@ DerivedDataCache/*
 # VS and Rider generate files
 /.idea
 .vsconfig
+*.DotSettings.user
+*.DotSettings
