@@ -148,7 +148,6 @@ void FMosaikkTrackEditor::AddTrackToSequence(const FAssetData& InAssetData)
 	check(Section);
 
 	Section->AssociatedWidgetClass = WidgetClass;
-	Section->AssociatedWidgetInstance = CreateWidget<UUserWidget>(GEditor->GetEditorWorldContext().World(), WidgetClass);
 
 	// Setup section range.
 	const UMosaikkSettings* MosaikkSettingsCDO = GetDefault<UMosaikkSettings>();

@@ -18,10 +18,6 @@ class MOSAIKK_API UMosaikkSection : public UMovieSceneSection,  public IMovieSce
 public:
 	UMosaikkSection(const FObjectInitializer& ObjInit);
 
-#if WITH_EDITOR
-	virtual void PostLoad() override;
-#endif
-
 private:
 	virtual void ImportEntityImpl(
 		UMovieSceneEntitySystemLinker* EntityLinker,
@@ -30,11 +26,7 @@ private:
 	) override;
 
 public:
-	// This will be serialized, so Editor or Sequencer reopened we have a chance to instantiate widgets.
+	/** This will be serialized, so when Editor or Sequencer are reopened we have a chance to instantiate widgets. */
 	UPROPERTY()
 	TSubclassOf<UUserWidget> AssociatedWidgetClass;
-
-	// This will not be serialized, this is valid only while Sequencer is opened.
-	UPROPERTY(Transient)
-	UUserWidget* AssociatedWidgetInstance = nullptr;
 };
