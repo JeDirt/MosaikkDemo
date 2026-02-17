@@ -8,8 +8,6 @@
 
 #include "MosaikkSection.generated.h"
 
-class USequenceInfoWidget;
-
 UCLASS()
 class MOSAIKK_API UMosaikkSection : public UMovieSceneSection,  public IMovieSceneEntityProvider
 {
@@ -19,11 +17,19 @@ public:
 	UMosaikkSection(const FObjectInitializer& ObjInit);
 
 private:
+	//~ IMovieSceneEntityProvider interface
 	virtual void ImportEntityImpl(
 		UMovieSceneEntitySystemLinker* EntityLinker,
 		const FEntityImportParams& Params,
 		FImportedEntity* OutImportedEntity
 	) override;
+
+	virtual bool PopulateEvaluationFieldImpl(
+		const TRange<FFrameNumber>& EffectiveRange,
+		const FMovieSceneEvaluationFieldEntityMetaData& InMetaData,
+		FMovieSceneEntityComponentFieldBuilder* OutFieldBuilder
+	) override;
+	// ~End IMovieSceneEntityProvider
 
 public:
 	/** This will be serialized, so when Editor or Sequencer are reopened we have a chance to instantiate widgets. */

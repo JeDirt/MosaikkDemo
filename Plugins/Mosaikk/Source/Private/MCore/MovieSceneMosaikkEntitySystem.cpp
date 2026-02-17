@@ -3,119 +3,177 @@
 #include "MCore/MovieSceneMosaikkEntitySystem.h"
 
 #include "EntitySystem/BuiltInComponentTypes.h"
+#include "Evaluation/PreAnimatedState/MovieScenePreAnimatedObjectStorage.h"
+#include "Evaluation/PreAnimatedState/MovieScenePreAnimatedStorageID.inl"
 
 #include "MCore/MosaikkMovieSceneComponentTypes.h"
 #include "MSequencer/MosaikkSection.h"
 #include "Mosaikk.h"
 
-struct FEvaluateMosaikk
+struct FCachedPreAnimatedMosaikk
 {
-	using FInstanceHandle		 = UE::MovieScene::FInstanceHandle;
-	using FMovieSceneEntityID	 = UE::MovieScene::FMovieSceneEntityID;
-	using FInstanceRegistry		 = UE::MovieScene::FInstanceRegistry;
-	using FRootInstanceHandle	 = UE::MovieScene::FRootInstanceHandle;
-	using FEntityAllocation		 = UE::MovieScene::FEntityAllocation;
-	using FSequenceInstance		 = UE::MovieScene::FSequenceInstance;
-	using FBuiltInComponentTypes = UE::MovieScene::FBuiltInComponentTypes;
+	FCachedPreAnimatedMosaikk(UMosaikkSection* InSection = nullptr) 
+	: CachedSection(InSection) { }
 
-public:
-	FEvaluateMosaikk(UMovieSceneMosaikkEntitySystem* InMosaikkEntitySystem) : MosaikkEntitySystem(InMosaikkEntitySystem)
-	{
-		InstanceRegistry = MosaikkEntitySystem->GetLinker()->GetInstanceRegistry();
-	}
+	TWeakObjectPtr<UMosaikkSection> CachedSection;
+};
 
-	void ForEachAllocation(
-		const FEntityAllocation* Allocation,
-		UE::MovieScene::TRead<FMovieSceneEntityID> EntityIDs,
-		UE::MovieScene::TRead<FRootInstanceHandle> RootInstanceHandles,
-		UE::MovieScene::TRead<FInstanceHandle> InstanceHandles,
-		UE::MovieScene::TRead<FMovieSceneMosaikkComponentData> MosaikkComponentDatas
-	) const
+template<typename BaseTraits>
+struct FPreAnimatedWidgetStateTraits : BaseTraits
+{
+	using KeyType = FObjectKey;
+	using StorageType = FCachedPreAnimatedMosaikk;
+
+	FCachedPreAnimatedMosaikk CachePreAnimatedValue(FObjectKey InKey)
 	{
-		const int32 Num = Allocation->Num();
-		for (int32 Index = 0; Index < Num; ++Index)
+		/** TODO: 
+		 * Seems like a bad design to store a Section as cached PreAnimated value.
+		 * For draft - ok, just wanted to make sure it works at least, but needs to be reimplemented for sure.
+		 * 
+		 * UMosaikkSection* is cached -> 
+		 * UMosaikkSection* ends(entity ends evaluation) -> 
+		 * Cached UMosaikkSection* removed from UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap -> 
+		 * Widget associated with this UMosaikkSection* removed from the screen
+		 */
+		UMosaikkSection* ReceivedSection = Cast<UMosaikkSection>(InKey.ResolveObjectPtr());
+		if (!IsValid(ReceivedSection))
 		{
-			const FMovieSceneEntityID& EntityID = EntityIDs[Index];
-			const FRootInstanceHandle& RootInstanceHandle = RootInstanceHandles[Index];
-			const FInstanceHandle& InstanceHandle = InstanceHandles[Index];
-			const FMovieSceneMosaikkComponentData& MosaikkData = MosaikkComponentDatas[Index];
-
-			const FSequenceInstance& Instance = InstanceRegistry->GetInstance(InstanceHandle);
-
-			Evaluate(EntityID, MosaikkData, Instance, RootInstanceHandle);
+			return {};
 		}
+
+		return { ReceivedSection };
 	}
 
-private:
-	void Evaluate(
-		const FMovieSceneEntityID& EntityID,
-		const FMovieSceneMosaikkComponentData& InMosaikkData,
-		const FSequenceInstance& Instance,
-		const FRootInstanceHandle& RootInstanceHandle
-	) const
+	void RestorePreAnimatedValue(FObjectKey InKey, FCachedPreAnimatedMosaikk PreAnimatedMosaikk, const UE::MovieScene::FRestoreStateParams& Params)
 	{
-		UMosaikkSection* MosaikkSection = InMosaikkData.Section;
-		if (!ensureMsgf(MosaikkSection, TEXT("No valid MosaikkSection found in MosaikkComponentData!")))
+		const FObjectKey SearchKey = FObjectKey(PreAnimatedMosaikk.CachedSection.Get());
+		const auto Result = UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap.Find(SearchKey);
+		if (Result == nullptr)
 		{
 			return;
 		}
 
-		if (MosaikkEntitySystem->WidgetMap.Find(EntityID) == nullptr)
-		{
-			// TODO: THIS WORKS FOR THE CASE WHEN 2 SECTIONS ARE SEQUENTIALLY ALIGNED IN SEQUENCER
-			// BUT IF 2 SECTIONS ARE ON THE SAME TIME AND ARE THE SAME LENGTH - ONLY 1 WIDGET IS SHOWN
-			MosaikkEntitySystem->HideAllWidgets();
-			UUserWidget* NewWidget = CreateWidget<UUserWidget>(
-				GEditor->GetEditorWorldContext().World(), MosaikkSection->AssociatedWidgetClass);
-			MosaikkEntitySystem->WidgetMap.Add(EntityID, NewWidget);
-			MosaikkEntitySystem->ShowWidget(NewWidget);
-		}
+		UMovieSceneMosaikkEntitySystem::RemoveWidgetFromSlot(Result->Widget.Get());
+		UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap.Remove(SearchKey);
 	}
-	
-public:
-	UMovieSceneMosaikkEntitySystem* MosaikkEntitySystem;
-	const FInstanceRegistry* InstanceRegistry;
 };
+
+using FPreAnimatedBoundObjectWidgetStateTraits = FPreAnimatedWidgetStateTraits<UE::MovieScene::FBoundObjectPreAnimatedStateTraits>;
+
+struct FPreAnimatedWidgetStorage : UE::MovieScene::TPreAnimatedStateStorage_ObjectTraits<FPreAnimatedBoundObjectWidgetStateTraits>
+{
+	static UE::MovieScene::TAutoRegisterPreAnimatedStorageID<FPreAnimatedWidgetStorage> StorageID;
+};
+
+UE::MovieScene::TAutoRegisterPreAnimatedStorageID<FPreAnimatedWidgetStorage> FPreAnimatedWidgetStorage::StorageID;
+
+/** Begin ~FEvaluateMosaikk implementation */
+void FEvaluateMosaikk::ForEachAllocation(
+	const FEntityAllocation* Allocation,
+	UE::MovieScene::TRead<FMovieSceneEntityID> EntityIDs,
+	UE::MovieScene::TRead<FRootInstanceHandle> RootInstanceHandles,
+	UE::MovieScene::TRead<FMovieSceneMosaikkComponentData> MosaikkComponentDatas
+) const
+{
+	using FBuiltInComponentTypes = UE::MovieScene::FBuiltInComponentTypes;
+
+	const FBuiltInComponentTypes* BuiltInComponents = FBuiltInComponentTypes::Get();
+	const bool bWantsRestoreState = Allocation->HasComponent(BuiltInComponents->Tags.RestoreState);
+
+	const int32 Num = Allocation->Num();
+	for (int32 Index = 0; Index < Num; ++Index)
+	{
+		const FMovieSceneEntityID& EntityID = EntityIDs[Index];
+		const FRootInstanceHandle& RootInstanceHandle = RootInstanceHandles[Index];
+		const FMovieSceneMosaikkComponentData& MosaikkData = MosaikkComponentDatas[Index];
+
+		Evaluate(EntityID, MosaikkData, RootInstanceHandle, bWantsRestoreState);
+	}
+}
+
+void FEvaluateMosaikk::Evaluate(
+	const FMovieSceneEntityID& EntityID,
+	const FMovieSceneMosaikkComponentData& InMosaikkData, 
+	const FRootInstanceHandle& RootInstanceHandle,
+	bool bWantsRestoreState
+) const
+{
+	UMosaikkSection* MosaikkSection = InMosaikkData.Section;
+	if (!ensureMsgf(MosaikkSection, TEXT("No valid MosaikkSection found in MosaikkComponentData!")))
+	{
+		return;
+	}
+
+	if (!MosaikkEntitySystem->GetMosaikkComponentEvalData(FObjectKey(MosaikkSection)))
+	{
+		UUserWidget* NewWidget = CreateWidget<UUserWidget>(
+			GEditor->GetEditorWorldContext().World(), 
+			MosaikkSection->AssociatedWidgetClass
+		);
+		MosaikkEntitySystem->AddNewWidget(FObjectKey(MosaikkSection), NewWidget);
+
+		MosaikkEntitySystem->PreAnimatedStorage->BeginTrackingEntity(
+			EntityID, 
+			bWantsRestoreState, 
+			RootInstanceHandle, 
+			MosaikkSection
+		);
+
+		using FCachePreAnimatedValueParams = UE::MovieScene::FCachePreAnimatedValueParams;
+		MosaikkEntitySystem->PreAnimatedStorage->CachePreAnimatedValue(
+			FCachePreAnimatedValueParams(), 
+			MosaikkSection
+		);
+	}
+}
+/** End ~FEvaluateMosaikk implementation */
+
+TMap<FObjectKey, FMosaikkComponentEvaluationData> UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap;
 
 UMovieSceneMosaikkEntitySystem::UMovieSceneMosaikkEntitySystem(const FObjectInitializer& ObjInit) : UMovieSceneEntitySystem(ObjInit)
 {
 	RelevantComponent = FMosaikkMovieSceneTracksComponentTypes::Get().Mosaikk;
+	Phase = UE::MovieScene::ESystemPhase::Scheduling;
 }
 
 void UMovieSceneMosaikkEntitySystem::OnLink()
 {
-	UE_LOGFMT(LogTemp, Warning, "{0} has been called!", __FUNCTION__);
+	PreAnimatedStorage = Linker->PreAnimatedState.GetOrCreateStorage<FPreAnimatedWidgetStorage>();
 }
 
 void UMovieSceneMosaikkEntitySystem::OnUnlink()
 {
-	UE_LOGFMT(LogTemp, Warning, "{0} has been called!", __FUNCTION__);
-
 	HideAllWidgets();
-	WidgetMap.Reset();
+	SectionToMosaikkComponentEvalDataMap.Reset();
 }
 
 void UMovieSceneMosaikkEntitySystem::OnSchedulePersistentTasks(UE::MovieScene::IEntitySystemScheduler* TaskScheduler)
 {
-	UE_LOGFMT(LogTemp, Warning, "{0} has been called!", __FUNCTION__);
-}
-
-void UMovieSceneMosaikkEntitySystem::OnRun(FSystemTaskPrerequisites& InPrerequisites, FSystemSubsequentTasks& Subsequents)
-{
-	UE_LOGFMT(LogTemp, Warning, "{0} has been called!", __FUNCTION__);
-
 	using namespace UE::MovieScene;
 
 	const FBuiltInComponentTypes* BuiltInComponents = FBuiltInComponentTypes::Get();
 	const FMosaikkMovieSceneTracksComponentTypes& MosaikkComponents = FMosaikkMovieSceneTracksComponentTypes::Get();
 
-	FEntityTaskBuilder()
+	FTaskID EvaluateMosaikkTask = FEntityTaskBuilder()
 	.ReadEntityIDs()
 	.Read(BuiltInComponents->RootInstanceHandle)
-	.Read(BuiltInComponents->InstanceHandle)
 	.Read(MosaikkComponents.Mosaikk)
 	.SetDesiredThread(Linker->EntityManager.GetGatherThread())
-	.template Dispatch_PerAllocation<FEvaluateMosaikk>(&Linker->EntityManager, InPrerequisites, &Subsequents, this);
+	.Schedule_PerAllocation<FEvaluateMosaikk>(&Linker->EntityManager, TaskScheduler, this);
+}
+
+FMosaikkComponentEvaluationData* UMovieSceneMosaikkEntitySystem::GetMosaikkComponentEvalData(const FObjectKey& InKey)
+{
+	return SectionToMosaikkComponentEvalDataMap.Find(InKey);
+}
+
+void UMovieSceneMosaikkEntitySystem::AddNewWidget(const FObjectKey& InKey, UUserWidget* InWidget)
+{
+	FMosaikkComponentEvaluationData Data;
+	Data.Widget = InWidget;
+	SectionToMosaikkComponentEvalDataMap.Add(InKey, Data);
+
+	ShowWidget(InWidget);
 }
 
 void UMovieSceneMosaikkEntitySystem::ShowWidget(UUserWidget* Widget)
@@ -128,6 +186,17 @@ void UMovieSceneMosaikkEntitySystem::ShowWidget(UUserWidget* Widget)
 
 	const TSharedPtr<SWidget> SlateWidget = Widget->TakeWidget();
 	MosaikkViewportOverlay->AddSlot()[SlateWidget.ToSharedRef()];
+}
+
+void UMovieSceneMosaikkEntitySystem::RemoveWidgetFromSlot(UUserWidget* Widget)
+{
+	const TSharedPtr<SOverlay> MosaikkViewportOverlay = FMosaikkModule::Get().GetMosaikkViewportOverlay();
+	if (!IsValid(Widget) || !MosaikkViewportOverlay.IsValid())
+	{
+		return;
+	}
+
+	MosaikkViewportOverlay->RemoveSlot(Widget->TakeWidget());
 }
 
 void UMovieSceneMosaikkEntitySystem::HideAllWidgets()

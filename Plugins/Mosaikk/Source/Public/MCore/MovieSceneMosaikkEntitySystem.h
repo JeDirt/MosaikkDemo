@@ -12,9 +12,35 @@ struct FMosaikkComponentEvaluationData
 {
 	/** The Widget that was created to be shown in a section. */
 	TWeakObjectPtr<UUserWidget> Widget;
+};
 
-	/** TODO: now does nothing to widget's opacity, ideally opacity can be controlled in Sequencer. */
-	double Opacity = 1.0f;
+struct FEvaluateMosaikk
+{
+	using FEntityAllocation   = UE::MovieScene::FEntityAllocation;
+	using FMovieSceneEntityID = UE::MovieScene::FMovieSceneEntityID;
+	using FRootInstanceHandle = UE::MovieScene::FRootInstanceHandle;
+
+public:
+	FEvaluateMosaikk(class UMovieSceneMosaikkEntitySystem* InMosaikkEntitySystem) 
+		: MosaikkEntitySystem(InMosaikkEntitySystem) { }
+
+	void ForEachAllocation(
+		const FEntityAllocation* Allocation,
+		UE::MovieScene::TRead<FMovieSceneEntityID> EntityIDs,
+		UE::MovieScene::TRead<FRootInstanceHandle> RootInstanceHandles,
+		UE::MovieScene::TRead<struct FMovieSceneMosaikkComponentData> MosaikkComponentDatas
+	) const;
+
+private:
+	void Evaluate(
+		const FMovieSceneEntityID& EntityID,
+		const FMovieSceneMosaikkComponentData& InMosaikkData,
+		const FRootInstanceHandle& RootInstanceHandle,
+		bool bWantsRestoreState
+	) const;
+
+public:
+	TWeakObjectPtr<UMovieSceneMosaikkEntitySystem> MosaikkEntitySystem;
 };
 
 UCLASS()
@@ -30,27 +56,18 @@ public:
 	virtual void OnLink() override;
 	virtual void OnUnlink() override;
 	virtual void OnSchedulePersistentTasks(UE::MovieScene::IEntitySystemScheduler* TaskScheduler) override;
-	virtual void OnRun(FSystemTaskPrerequisites& InPrerequisites, FSystemSubsequentTasks& Subsequents) override;
 	// ~End UMovieSceneEntitySystem interface
+	
+	FMosaikkComponentEvaluationData* GetMosaikkComponentEvalData(const FObjectKey& InKey);
+	void AddNewWidget(const FObjectKey& InKey, UUserWidget* InWidget);
 
 public:
-	/** 
-	 * Map of all created Widgets. 
-	 * 
-	 * Section: FInstanceHandle, FObjectKey
-	 * to
-	 * FMosaikkComponentEvaluationData
-	 */
-	using FInstanceHandle = UE::MovieScene::FInstanceHandle;
-	using FInstanceObjectKey = TTuple<FInstanceHandle, FObjectKey>;
-	using FWidgetBySection = TMap<FInstanceObjectKey, FMosaikkComponentEvaluationData>;
-	FWidgetBySection SectionToWidgetMap;
-	
-	// TODO: CAN BE GC'ed potentially
-	TMap<UE::MovieScene::FMovieSceneEntityID, UUserWidget*> WidgetMap;
+	/** Pre-animated state */
+	TSharedPtr<struct FPreAnimatedWidgetStorage> PreAnimatedStorage;
 
-	void ShowWidget(UUserWidget* Widget);
-	void HideAllWidgets();
-	
-	
+	static void ShowWidget(UUserWidget* Widget);
+	static void RemoveWidgetFromSlot(UUserWidget* Widget);
+	static void HideAllWidgets();
+
+	static TMap<FObjectKey, FMosaikkComponentEvaluationData> SectionToMosaikkComponentEvalDataMap;
 };

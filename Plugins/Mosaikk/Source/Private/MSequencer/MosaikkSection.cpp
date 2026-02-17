@@ -5,12 +5,19 @@
 #include "EntitySystem/BuiltInComponentTypes.h"
 
 #include "MCore/MosaikkMovieSceneComponentTypes.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 
 UMosaikkSection::UMosaikkSection(const FObjectInitializer& ObjInit) : Super(ObjInit)
 {
 	// This section must be public as the object animator system needs to reference it and it lives in a different package.
 	// Without this flag, object reinstancing will clear out the pointer to the section with FArchiveReplaceOrClearExternalReferences
 	SetFlags(RF_Public);
+
+	const int32 LinkerCustomVersion = GetLinkerCustomVersion(FSequencerObjectVersion::GUID);
+	const EMovieSceneCompletionMode CompletionMode = 
+		LinkerCustomVersion < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault 
+		? EMovieSceneCompletionMode::RestoreState : EMovieSceneCompletionMode::ProjectDefault;
+	EvalOptions.EnableAndSetCompletionMode(CompletionMode);
 }
 
 void UMosaikkSection::ImportEntityImpl(
@@ -23,12 +30,19 @@ void UMosaikkSection::ImportEntityImpl(
 
 	const FBuiltInComponentTypes* BuiltInComponents = FBuiltInComponentTypes::Get();
 	const FMosaikkMovieSceneTracksComponentTypes& MosaikkComponents = FMosaikkMovieSceneTracksComponentTypes::Get();
-	const FGuid ObjectBindingID = Params.GetObjectBindingID();
 
 	OutImportedEntity->AddBuilder(
-			FEntityBuilder()
-			.AddConditional(BuiltInComponents->GenericObjectBinding, ObjectBindingID, ObjectBindingID.IsValid())
-			.AddTagConditional(BuiltInComponents->Tags.Root, !ObjectBindingID.IsValid())
-			.Add(MosaikkComponents.Mosaikk, FMovieSceneMosaikkComponentData { this })
+		FEntityBuilder()
+		.AddTag(BuiltInComponents->Tags.Root)
+		.Add(MosaikkComponents.Mosaikk, FMovieSceneMosaikkComponentData { this })
 	);
+}
+
+bool UMosaikkSection::PopulateEvaluationFieldImpl(
+	const TRange<FFrameNumber>& EffectiveRange,
+	const FMovieSceneEvaluationFieldEntityMetaData& InMetaData, 
+	FMovieSceneEntityComponentFieldBuilder* OutFieldBuilder
+)
+{
+	return false;
 }

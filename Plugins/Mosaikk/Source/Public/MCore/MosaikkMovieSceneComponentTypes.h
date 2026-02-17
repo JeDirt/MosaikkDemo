@@ -37,7 +37,7 @@ private:
 	FMosaikkMovieSceneTracksComponentTypes()
 	{
 		FComponentRegistry* ComponentRegistry = UMovieSceneEntitySystemLinker::GetComponents();
-		ComponentRegistry->NewComponentType(&Mosaikk, TEXT("Mosaikk"), EComponentTypeFlags::CopyToChildren);
+		ComponentRegistry->NewComponentType(&Mosaikk, TEXT("Mosaikk"));
 	}
 
 	FMosaikkMovieSceneTracksComponentTypes(const FMosaikkMovieSceneTracksComponentTypes&) = delete;
