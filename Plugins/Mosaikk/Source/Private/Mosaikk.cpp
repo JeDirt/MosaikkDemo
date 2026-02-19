@@ -7,6 +7,7 @@
 #include "LevelEditor.h"
 #include "LevelSequence.h"
 #include "MovieSceneCaptureDialogModule.h"
+#include "Widgets/Layout/SConstraintCanvas.h"
 
 #include "MActor/MosaikkProxyActor.h"
 #include "MCore/MosaikkCommands.h"
@@ -88,9 +89,9 @@ FMosaikkModule& FMosaikkModule::Get()
 	return FModuleManager::LoadModuleChecked<FMosaikkModule>("Mosaikk");
 }
 
-TSharedPtr<SOverlay> FMosaikkModule::GetMosaikkViewportOverlay() const
+TSharedPtr<SConstraintCanvas> FMosaikkModule::GetMosaikkViewportCanvas() const
 {
-	return MosaikkViewportOverlay;
+	return MosaikkViewportCanvas;
 }
 
 TSharedPtr<SLevelViewport> FMosaikkModule::GetLevelEditorViewport()
@@ -122,23 +123,23 @@ void FMosaikkModule::OnSequencerCreated(TSharedRef<ISequencer> CreatedSequencer)
 	const ULevelSequence* LevelSequence = Cast<ULevelSequence>(Sequence);
 	if (!IsValid(LevelSequence))
 	{
-		// Not a level sequence (likely UMG, Niagara, Control Rig, etc.), so prevent binding to delegates and creating Overlay.
+		// Not a level sequence (likely UMG, Niagara, Control Rig, etc.), so prevent binding to delegates and creating Canvas.
 		return;
 	}
 
 	const TSharedPtr<SLevelViewport> LvlViewport = GetLevelEditorViewport();
 	if (!LvlViewport.IsValid())
 	{
-		UE_LOG(LogMosaikk, Error, TEXT("FMosaikkModule::OnSequencerCreated: Failed to receive LevelViewport, can't push MosaikkViewportOverlay!"));
+		UE_LOG(LogMosaikk, Error, TEXT("FMosaikkModule::OnSequencerCreated: Failed to receive LevelViewport, can't push MosaikkViewportCanvas!"));
 		return;
 	}
 
-	// When Sequencer is created - push our custom overlay to the viewport.
-	if (!MosaikkViewportOverlay.IsValid())
+	// When Sequencer is created - push our custom canvas to the viewport.
+	if (!MosaikkViewportCanvas.IsValid())
 	{
-		MosaikkViewportOverlay = SNew(SOverlay);
-		LvlViewport->AddOverlayWidget(MosaikkViewportOverlay->AsShared());
-		UE_LOG(LogMosaikk, Display, TEXT("FMosaikkModule::OnSequencerCreated: MosaikkViewportOverlay is created and pushed to LevelViewport"));
+		MosaikkViewportCanvas = SNew(SConstraintCanvas);
+		LvlViewport->AddOverlayWidget(MosaikkViewportCanvas->AsShared());
+		UE_LOG(LogMosaikk, Display, TEXT("FMosaikkModule::OnSequencerCreated: MosaikkViewportCanvas is created and pushed to LevelViewport"));
 	}
 
 	if (!CreatedSequencer->OnCloseEvent().IsBoundToObject(this))
@@ -157,19 +158,19 @@ void FMosaikkModule::OnSequencerClosed(TSharedRef<ISequencer> ClosedSequencer)
 	const TSharedPtr<SLevelViewport> CurrentLvlViewport = GetLevelEditorViewport();
 	if (!CurrentLvlViewport.IsValid())
 	{
-		UE_LOG(LogMosaikk, Error, TEXT("FMosaikkModule::OnSequencerClosed: Failed to receive LevelViewport, MosaikkViewportOverlay might not be removed from LevelViewport!"));
+		UE_LOG(LogMosaikk, Error, TEXT("FMosaikkModule::OnSequencerClosed: Failed to receive LevelViewport, MosaikkViewportCanvas might not be removed from LevelViewport!"));
 		return;
 	}
 
 	ClosedSequencer->OnCloseEvent().Remove(SequencerClosedHandle);
 	FEditorDelegates::PostPIEStarted.Remove(PostPIEStartedHandle);
 
-	// When sequencer is closed - remove our custom overlay from viewport, this overlay is used only in Sequencer context.
-	if (MosaikkViewportOverlay.IsValid())
+	// When sequencer is closed - remove our custom canvas from viewport, this canvas is used only in Sequencer context.
+	if (MosaikkViewportCanvas.IsValid())
 	{
-		CurrentLvlViewport->RemoveOverlayWidget(MosaikkViewportOverlay->AsShared());
-		MosaikkViewportOverlay.Reset();
-		UE_LOG(LogMosaikk, Display, TEXT("FMosaikkModule::OnSequencerClosed: MosaikkViewportOverlay successfully removed from LevelViewport!"));
+		CurrentLvlViewport->RemoveOverlayWidget(MosaikkViewportCanvas->AsShared());
+		MosaikkViewportCanvas.Reset();
+		UE_LOG(LogMosaikk, Display, TEXT("FMosaikkModule::OnSequencerClosed: MosaikkViewportCanvas successfully removed from LevelViewport!"));
 	}
 }
 

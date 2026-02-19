@@ -6,7 +6,7 @@
 
 #include "MosaikkHostWidget.generated.h"
 
-class UOverlay;
+class UCanvasPanel;
 
 UCLASS()
 class MOSAIKK_API UMosaikkHostWidget : public UUserWidget
@@ -19,5 +19,5 @@ public:
 
 protected:
 	UPROPERTY()
-	TObjectPtr<UOverlay> RootOverlay;
+	TObjectPtr<UCanvasPanel> RootCanvas;
 };

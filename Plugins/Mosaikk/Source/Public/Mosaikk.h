@@ -6,6 +6,7 @@
 
 class AMosaikkProxyActor;
 class ISequencer;
+class SConstraintCanvas;
 class SLevelViewport;
 
 class FMosaikkModule : public IModuleInterface
@@ -17,7 +18,7 @@ public:
 	static FMosaikkModule& Get();
 
 public:
-	TSharedPtr<SOverlay> GetMosaikkViewportOverlay() const;
+	TSharedPtr<SConstraintCanvas> GetMosaikkViewportCanvas() const;
 	TSharedPtr<SLevelViewport> GetLevelEditorViewport();
 
 protected:
@@ -33,13 +34,13 @@ protected:
 
 private:
 	/**
-	 * Overlay that is used for displaying UMG widget in sequencer.
+	 * Canvas that is used for displaying UMG widget in sequencer.
 	 * Added to Editor Viewport when Sequencer is opened.
 	 * Removed from Editor Viewport when Sequencer is closed.
 	 *
-	 * Using this overlay we can show widgets in Editor Viewport any time we want, not only PIE.
+	 * Using this canvas we can show widgets in Editor Viewport any time we want, not only PIE.
 	 */
-	TSharedPtr<SOverlay> MosaikkViewportOverlay;
+	TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas;
 
 	TSharedPtr<FExtender> SequencerToolbarExtender;
 

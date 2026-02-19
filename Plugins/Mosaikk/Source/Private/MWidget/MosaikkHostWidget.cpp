@@ -3,7 +3,7 @@
 #include "MWidget/MosaikkHostWidget.h"
 
 #include "Blueprint/WidgetTree.h"
-#include "Components/Overlay.h"
+#include "Components/CanvasPanel.h"
 
 #include "Mosaikk.h"
 
@@ -11,37 +11,37 @@ void UMosaikkHostWidget::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
 
-	RootOverlay = WidgetTree->ConstructWidget<UOverlay>(UOverlay::StaticClass(), TEXT("RootOverlay"));
-	if (!IsValid(RootOverlay))
+	RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
+	if (!IsValid(RootCanvas))
 	{
 		return;
 	}
 
 	if (!IsValid(WidgetTree->RootWidget))
 	{
-		WidgetTree->RootWidget = RootOverlay;
+		WidgetTree->RootWidget = RootCanvas;
 	}
 
-	const TSharedRef<SOverlay> SlateRootOverlay = StaticCastSharedRef<SOverlay>(RootOverlay->TakeWidget());
-	if (!SlateRootOverlay.ToWeakPtr().IsValid())
+	const TSharedRef<SConstraintCanvas> SlateRootCanvas = StaticCastSharedRef<SConstraintCanvas>(RootCanvas->TakeWidget());
+	if (!SlateRootCanvas.ToWeakPtr().IsValid())
 	{
 		return;
 	}
 
-	const TSharedPtr<SOverlay> MosaikkViewportOverlay = FMosaikkModule::Get().GetMosaikkViewportOverlay();
-	SlateRootOverlay->AddSlot()[MosaikkViewportOverlay.ToSharedRef()];
+	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
+	SlateRootCanvas->AddSlot()[MosaikkViewportCanvas.ToSharedRef()];
 }
 
 void UMosaikkHostWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
 
-	if (!IsValid(RootOverlay))
+	if (!IsValid(RootCanvas))
 	{
 		return;
 	}
 
-	WidgetTree->RemoveWidget(RootOverlay);
+	WidgetTree->RemoveWidget(RootCanvas);
 	WidgetTree->RootWidget = nullptr;
 }
 

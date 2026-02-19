@@ -5,6 +5,7 @@
 #include "EntitySystem/BuiltInComponentTypes.h"
 #include "Evaluation/PreAnimatedState/MovieScenePreAnimatedObjectStorage.h"
 #include "Evaluation/PreAnimatedState/MovieScenePreAnimatedStorageID.inl"
+#include "Widgets/Layout/SConstraintCanvas.h"
 
 #include "MCore/MosaikkMovieSceneComponentTypes.h"
 #include "MSequencer/MosaikkSection.h"
@@ -154,7 +155,7 @@ void UMovieSceneMosaikkEntitySystem::OnSchedulePersistentTasks(UE::MovieScene::I
 	const FBuiltInComponentTypes* BuiltInComponents = FBuiltInComponentTypes::Get();
 	const FMosaikkMovieSceneTracksComponentTypes& MosaikkComponents = FMosaikkMovieSceneTracksComponentTypes::Get();
 
-	FTaskID EvaluateMosaikkTask = FEntityTaskBuilder()
+	FEntityTaskBuilder()
 	.ReadEntityIDs()
 	.Read(BuiltInComponents->RootInstanceHandle)
 	.Read(MosaikkComponents.Mosaikk)
@@ -178,34 +179,40 @@ void UMovieSceneMosaikkEntitySystem::AddNewWidget(const FObjectKey& InKey, UUser
 
 void UMovieSceneMosaikkEntitySystem::ShowWidget(UUserWidget* Widget)
 {
-	const TSharedPtr<SOverlay> MosaikkViewportOverlay = FMosaikkModule::Get().GetMosaikkViewportOverlay();
-	if (!IsValid(Widget) || !MosaikkViewportOverlay.IsValid())
+	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
+	if (!IsValid(Widget) || !MosaikkViewportCanvas.IsValid())
 	{
 		return;
 	}
 
-	const TSharedPtr<SWidget> SlateWidget = Widget->TakeWidget();
-	MosaikkViewportOverlay->AddSlot()[SlateWidget.ToSharedRef()];
+	const TSharedRef<SWidget> SlateWidget = Widget->TakeWidget();
+	MosaikkViewportCanvas->AddSlot()
+		.Anchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f))
+		.Offset(FMargin(0.0f))
+		.Alignment(FVector2D(0.0f, 0.0f))
+	[
+		SlateWidget
+	];
 }
 
 void UMovieSceneMosaikkEntitySystem::RemoveWidgetFromSlot(UUserWidget* Widget)
 {
-	const TSharedPtr<SOverlay> MosaikkViewportOverlay = FMosaikkModule::Get().GetMosaikkViewportOverlay();
-	if (!IsValid(Widget) || !MosaikkViewportOverlay.IsValid())
+	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
+	if (!IsValid(Widget) || !MosaikkViewportCanvas.IsValid())
 	{
 		return;
 	}
 
-	MosaikkViewportOverlay->RemoveSlot(Widget->TakeWidget());
+	MosaikkViewportCanvas->RemoveSlot(Widget->TakeWidget());
 }
 
 void UMovieSceneMosaikkEntitySystem::HideAllWidgets()
 {
-	const TSharedPtr<SOverlay> MosaikkViewportOverlay = FMosaikkModule::Get().GetMosaikkViewportOverlay();
-	if (!MosaikkViewportOverlay.IsValid())
+	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
+	if (!MosaikkViewportCanvas.IsValid())
 	{
 		return;
 	}
 
-	MosaikkViewportOverlay->ClearChildren();
+	MosaikkViewportCanvas->ClearChildren();
 }

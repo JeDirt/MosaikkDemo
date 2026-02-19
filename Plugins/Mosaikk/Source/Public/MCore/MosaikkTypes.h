@@ -19,7 +19,7 @@ public:
 	FIntPoint DefaultSectionRange = { 10, 30 };
 
 	UPROPERTY(Config, EditAnywhere, Category=Appearence)
-	FColor DefaultTrackTint = FColor(64,192,64,65);
+	FColor DefaultTrackTint = FColor(192,0,61,75);
 
 	/**
 	 * Host widget that is created via AMosaikkProxyActor during movie capture.
