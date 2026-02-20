@@ -65,9 +65,5 @@ public:
 	/** Pre-animated state */
 	TSharedPtr<struct FPreAnimatedWidgetStorage> PreAnimatedStorage;
 
-	static void ShowWidget(UUserWidget* Widget);
-	static void RemoveWidgetFromSlot(UUserWidget* Widget);
-	static void HideAllWidgets();
-
 	static TMap<FObjectKey, FMosaikkComponentEvaluationData> SectionToMosaikkComponentEvalDataMap;
 };

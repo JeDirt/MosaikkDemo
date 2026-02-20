@@ -5,11 +5,10 @@
 #include "EntitySystem/BuiltInComponentTypes.h"
 #include "Evaluation/PreAnimatedState/MovieScenePreAnimatedObjectStorage.h"
 #include "Evaluation/PreAnimatedState/MovieScenePreAnimatedStorageID.inl"
-#include "Widgets/Layout/SConstraintCanvas.h"
 
 #include "MCore/MosaikkMovieSceneComponentTypes.h"
+#include "MCore/MosaikkUtils.h"
 #include "MSequencer/MosaikkSection.h"
-#include "Mosaikk.h"
 
 struct FCachedPreAnimatedMosaikk
 {
@@ -54,7 +53,7 @@ struct FPreAnimatedWidgetStateTraits : BaseTraits
 			return;
 		}
 
-		UMovieSceneMosaikkEntitySystem::RemoveWidgetFromSlot(Result->Widget.Get());
+		FMosaikkWidgetUtils::RemoveWidgetFromHostCanvas(Result->Widget.Get());
 		UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap.Remove(SearchKey);
 	}
 };
@@ -144,7 +143,7 @@ void UMovieSceneMosaikkEntitySystem::OnLink()
 
 void UMovieSceneMosaikkEntitySystem::OnUnlink()
 {
-	HideAllWidgets();
+	FMosaikkWidgetUtils::ClearHostCanvas();
 	SectionToMosaikkComponentEvalDataMap.Reset();
 }
 
@@ -174,45 +173,5 @@ void UMovieSceneMosaikkEntitySystem::AddNewWidget(const FObjectKey& InKey, UUser
 	Data.Widget = InWidget;
 	SectionToMosaikkComponentEvalDataMap.Add(InKey, Data);
 
-	ShowWidget(InWidget);
-}
-
-void UMovieSceneMosaikkEntitySystem::ShowWidget(UUserWidget* Widget)
-{
-	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
-	if (!IsValid(Widget) || !MosaikkViewportCanvas.IsValid())
-	{
-		return;
-	}
-
-	const TSharedRef<SWidget> SlateWidget = Widget->TakeWidget();
-	MosaikkViewportCanvas->AddSlot()
-		.Anchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f))
-		.Offset(FMargin(0.0f))
-		.Alignment(FVector2D(0.0f, 0.0f))
-	[
-		SlateWidget
-	];
-}
-
-void UMovieSceneMosaikkEntitySystem::RemoveWidgetFromSlot(UUserWidget* Widget)
-{
-	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
-	if (!IsValid(Widget) || !MosaikkViewportCanvas.IsValid())
-	{
-		return;
-	}
-
-	MosaikkViewportCanvas->RemoveSlot(Widget->TakeWidget());
-}
-
-void UMovieSceneMosaikkEntitySystem::HideAllWidgets()
-{
-	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
-	if (!MosaikkViewportCanvas.IsValid())
-	{
-		return;
-	}
-
-	MosaikkViewportCanvas->ClearChildren();
+	FMosaikkWidgetUtils::PushWidgetToHostCanvas(InWidget);
 }

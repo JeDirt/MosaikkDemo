@@ -18,7 +18,7 @@ public:
 	static FMosaikkModule& Get();
 
 public:
-	TSharedPtr<SConstraintCanvas> GetMosaikkViewportCanvas() const;
+	TSharedPtr<SConstraintCanvas> GetHostCanvas() const;
 	TSharedPtr<SLevelViewport> GetLevelEditorViewport();
 
 protected:
@@ -31,6 +31,7 @@ protected:
 	void OnMosaikkButtonClicked_RESERVED();
 
 	TSharedRef<SDockTab> OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs);
+	void OnTabForegrounded(TSharedPtr<SDockTab> PreviouslyActive, TSharedPtr<SDockTab> NewlyActivated);
 
 private:
 	/**
@@ -40,7 +41,7 @@ private:
 	 *
 	 * Using this canvas we can show widgets in Editor Viewport any time we want, not only PIE.
 	 */
-	TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas;
+	TSharedPtr<SConstraintCanvas> HostCanvas;
 
 	TSharedPtr<FExtender> SequencerToolbarExtender;
 
@@ -48,6 +49,9 @@ private:
 	FDelegateHandle SequencerCreatedHandle;
 	FDelegateHandle SequencerClosedHandle;
 	FDelegateHandle PostPIEStartedHandle;
+	FDelegateHandle OnTabForegroundedDelegateHandle;
 
 	TSharedPtr<FUICommandList> PluginCommands;
+
+	TWeakPtr<ISequencer> CachedSequencer;
 };

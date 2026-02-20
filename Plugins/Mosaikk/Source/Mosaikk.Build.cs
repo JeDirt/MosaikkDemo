@@ -19,6 +19,7 @@ public class Mosaikk : ModuleRules
 				"Projects",
 				"InputCore",
 				"EditorFramework",
+				"LevelEditor",
 				"UnrealEd",
 				"ToolMenus",
 				"CoreUObject",

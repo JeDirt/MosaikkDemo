@@ -28,8 +28,14 @@ void UMosaikkHostWidget::NativeOnInitialized()
 		return;
 	}
 
-	const TSharedPtr<SConstraintCanvas> MosaikkViewportCanvas = FMosaikkModule::Get().GetMosaikkViewportCanvas();
-	SlateRootCanvas->AddSlot()[MosaikkViewportCanvas.ToSharedRef()];
+	const TSharedPtr<SConstraintCanvas> HostCanvas = FMosaikkModule::Get().GetHostCanvas();
+	SlateRootCanvas->AddSlot()
+		.Anchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f))
+		.Offset(FMargin(0.0f))
+		.Alignment(FVector2D(0.0f, 0.0f))
+	[
+		HostCanvas.ToSharedRef()
+	];
 }
 
 void UMosaikkHostWidget::NativeDestruct()
