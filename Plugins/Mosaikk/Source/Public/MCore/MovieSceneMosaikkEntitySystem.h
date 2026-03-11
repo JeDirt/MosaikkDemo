@@ -10,8 +10,10 @@
 
 struct FMosaikkComponentEvaluationData
 {
+	FMosaikkComponentEvaluationData(UUserWidget* InWidget = nullptr) : WidgetPtr(InWidget) { }
+
 	/** The Widget that was created to be shown in a section. */
-	TWeakObjectPtr<UUserWidget> Widget;
+	TObjectPtr<UUserWidget> WidgetPtr;
 };
 
 struct FEvaluateMosaikk
@@ -57,13 +59,25 @@ public:
 	virtual void OnUnlink() override;
 	virtual void OnSchedulePersistentTasks(UE::MovieScene::IEntitySystemScheduler* TaskScheduler) override;
 	// ~End UMovieSceneEntitySystem interface
-	
+
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+
 	FMosaikkComponentEvaluationData* GetMosaikkComponentEvalData(const FObjectKey& InKey);
-	void AddNewWidget(const FObjectKey& InKey, UUserWidget* InWidget);
+	void AddSectionWidget(const FObjectKey& InKey, UUserWidget* InWidget);
+
+	/**
+	 * Removes Widget associated with this Section(stored as FObjectKey) from **SectionEvalDataMap**,
+	 * removes it from screen and marks it as garbage.
+	 */
+	void RemoveSectionWidget(const FObjectKey& InKey);
+
+	/** Just removes entry from **SectionEvalDataMap** by passed Section(stored as FObjectKey). */
+	void RemoveSectionWidgetEntry(const FObjectKey& InKey);
 
 public:
 	/** Pre-animated state */
 	TSharedPtr<struct FPreAnimatedWidgetStorage> PreAnimatedStorage;
 
-	static TMap<FObjectKey, FMosaikkComponentEvaluationData> SectionToMosaikkComponentEvalDataMap;
+protected:
+	TMap<FObjectKey, FMosaikkComponentEvaluationData> SectionEvalDataMap;
 };

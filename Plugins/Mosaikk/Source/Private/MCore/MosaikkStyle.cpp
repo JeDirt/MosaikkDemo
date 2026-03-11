@@ -41,7 +41,8 @@ TSharedRef< FSlateStyleSet > FMosaikkStyle::Create()
 	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("MosaikkStyle"));
 	Style->SetContentRoot(IPluginManager::Get().FindPlugin("Mosaikk")->GetBaseDir() / TEXT("Resources"));
 
-	Style->Set("Mosaikk.OpenPluginWindow", new IMAGE_BRUSH_SVG(TEXT("PlaceholderButtonIcon"), Icon20x20));
+	// TODO: generate set of icons for plugin.
+	Style->Set("Mosaikk.MosaikkHUBIcon", new IMAGE_BRUSH(TEXT("MosaikkIcon"), Icon20x20));
 
 	return Style;
 }

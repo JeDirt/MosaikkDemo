@@ -4,29 +4,6 @@
 
 #include "CoreMinimal.h"
 
-class FMosaikkWidgetUtils
-{
-public:
-	/**
-	 * Pushes passed widget to the **FMosaikkModule::HostCanvas** as new slot.
-	 * 
-	 * @param Widget				Widget to push
-	 */
-	static void PushWidgetToHostCanvas(UUserWidget* Widget);
-
-	/**
-	 * Removes passed widget from **FMosaikkModule::HostCanvas** as slot.
-	 * 
-	 * @param Widget				Widget to remove 
-	 */
-	static void RemoveWidgetFromHostCanvas(UUserWidget* Widget);
-
-	/**
-	 * Removes all slots from **FMosaikkModule::HostCanvas**.
-	 */
-	static void ClearHostCanvas();
-};
-
 class FMosaikkSequencerUtils
 {
 public:

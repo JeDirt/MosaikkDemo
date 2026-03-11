@@ -17,8 +17,14 @@
 	"Modules": [
 		{
 			"Name": "Mosaikk",
-			"Type": "Runtime",
+			"Type": "Editor",
 			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "MovieRenderPipeline",
+			"Enabled": true
 		}
 	]
 }

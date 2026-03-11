@@ -10,7 +10,14 @@ public class Mosaikk : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(new string[]
 			{
-				"Core", "Sequencer", "MovieScene", "MovieSceneTracks", "UMGEditor"
+				"Core", 
+				"Sequencer", 
+				"MovieScene", 
+				"MovieSceneTracks", 
+				"UMGEditor",
+				"MovieRenderPipelineCore", 
+				"RenderCore", 
+				"RHI"
 			}
 		);
 

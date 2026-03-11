@@ -2,20 +2,21 @@
 
 #include "MCore/MovieSceneMosaikkEntitySystem.h"
 
+#include "Engine/World.h"
 #include "EntitySystem/BuiltInComponentTypes.h"
 #include "Evaluation/PreAnimatedState/MovieScenePreAnimatedObjectStorage.h"
 #include "Evaluation/PreAnimatedState/MovieScenePreAnimatedStorageID.inl"
 
 #include "MCore/MosaikkMovieSceneComponentTypes.h"
-#include "MCore/MosaikkUtils.h"
+#include "MRendering/MosaikkHostCanvasManager.h"
 #include "MSequencer/MosaikkSection.h"
 
 struct FCachedPreAnimatedMosaikk
 {
 	FCachedPreAnimatedMosaikk(UMosaikkSection* InSection = nullptr) 
-	: CachedSection(InSection) { }
+	: SectionPtr(InSection) { }
 
-	TWeakObjectPtr<UMosaikkSection> CachedSection;
+	TWeakObjectPtr<UMosaikkSection> SectionPtr;
 };
 
 template<typename BaseTraits>
@@ -26,35 +27,35 @@ struct FPreAnimatedWidgetStateTraits : BaseTraits
 
 	FCachedPreAnimatedMosaikk CachePreAnimatedValue(FObjectKey InKey)
 	{
-		/** TODO: 
-		 * Seems like a bad design to store a Section as cached PreAnimated value.
-		 * For draft - ok, just wanted to make sure it works at least, but needs to be reimplemented for sure.
-		 * 
-		 * UMosaikkSection* is cached -> 
-		 * UMosaikkSection* ends(entity ends evaluation) -> 
-		 * Cached UMosaikkSection* removed from UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap -> 
-		 * Widget associated with this UMosaikkSection* removed from the screen
-		 */
-		UMosaikkSection* ReceivedSection = Cast<UMosaikkSection>(InKey.ResolveObjectPtr());
-		if (!IsValid(ReceivedSection))
-		{
-			return {};
-		}
-
-		return { ReceivedSection };
+		return { Cast<UMosaikkSection>(InKey.ResolveObjectPtr()) };
 	}
 
 	void RestorePreAnimatedValue(FObjectKey InKey, FCachedPreAnimatedMosaikk PreAnimatedMosaikk, const UE::MovieScene::FRestoreStateParams& Params)
 	{
-		const FObjectKey SearchKey = FObjectKey(PreAnimatedMosaikk.CachedSection.Get());
-		const auto Result = UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap.Find(SearchKey);
-		if (Result == nullptr)
+		const auto LinkedSystem = Cast<UMovieSceneMosaikkEntitySystem>(Params.Linker->FindSystem(UMovieSceneMosaikkEntitySystem::StaticClass()));
+		if (!IsValid(LinkedSystem))
 		{
 			return;
 		}
 
-		FMosaikkWidgetUtils::RemoveWidgetFromHostCanvas(Result->Widget.Get());
-		UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap.Remove(SearchKey);
+		// Weak section can be stale during teardown; fall back to the incoming key if needed.
+		const UObject* SectionObj = PreAnimatedMosaikk.SectionPtr.Get();
+		const FObjectKey SectionKey = SectionObj ? FObjectKey(SectionObj) : InKey;
+		const auto CompEvalData = LinkedSystem->GetMosaikkComponentEvalData(SectionKey);
+		if (CompEvalData == nullptr)
+		{
+			return;
+		}
+
+		// Widget is already invalid, just remove it from map here and now.
+		UUserWidget* WidgetToRemove = CompEvalData->WidgetPtr.Get();
+		if (!IsValid(WidgetToRemove))
+		{
+			LinkedSystem->RemoveSectionWidgetEntry(SectionKey);
+			return;
+		}
+
+		LinkedSystem->RemoveSectionWidget(SectionKey);
 	}
 };
 
@@ -104,13 +105,28 @@ void FEvaluateMosaikk::Evaluate(
 		return;
 	}
 
-	if (!MosaikkEntitySystem->GetMosaikkComponentEvalData(FObjectKey(MosaikkSection)))
+	// Reuse existing widget mapping for this section; if it's stale, clean it up.
+	const FObjectKey SectionKey = FObjectKey(MosaikkSection);
+	
+	if (!MosaikkEntitySystem->GetMosaikkComponentEvalData(SectionKey))
 	{
-		UUserWidget* NewWidget = CreateWidget<UUserWidget>(
-			GEditor->GetEditorWorldContext().World(), 
-			MosaikkSection->AssociatedWidgetClass
-		);
-		MosaikkEntitySystem->AddNewWidget(FObjectKey(MosaikkSection), NewWidget);
+		// Prefer the section's world, but fall back to the editor world for MRQ contexts.
+		UWorld* World = IsValid(MosaikkSection->GetWorld()) ? MosaikkSection->GetWorld()
+			   : (GEditor ? GEditor->GetEditorWorldContext().World() : nullptr);
+
+		if (!IsValid(World))
+		{
+			return;
+		}
+
+		/**
+		 * TODO: often widget creation can cause decent memory pressure, 
+		 * for example if user is gonna oftenly switch between sections.
+		 * Bunch of widget copies are gonna hang in memory until next GC tick, ideally we should create single widget instance for 
+		 * each associated section early(for example during startup) and reuse them.
+		 */
+		UUserWidget* NewWidget = CreateWidget<UUserWidget>(World, MosaikkSection->AssociatedWidgetClass);
+		MosaikkEntitySystem->AddSectionWidget(SectionKey, NewWidget);
 
 		MosaikkEntitySystem->PreAnimatedStorage->BeginTrackingEntity(
 			EntityID, 
@@ -128,8 +144,6 @@ void FEvaluateMosaikk::Evaluate(
 }
 /** End ~FEvaluateMosaikk implementation */
 
-TMap<FObjectKey, FMosaikkComponentEvaluationData> UMovieSceneMosaikkEntitySystem::SectionToMosaikkComponentEvalDataMap;
-
 UMovieSceneMosaikkEntitySystem::UMovieSceneMosaikkEntitySystem(const FObjectInitializer& ObjInit) : UMovieSceneEntitySystem(ObjInit)
 {
 	RelevantComponent = FMosaikkMovieSceneTracksComponentTypes::Get().Mosaikk;
@@ -143,8 +157,14 @@ void UMovieSceneMosaikkEntitySystem::OnLink()
 
 void UMovieSceneMosaikkEntitySystem::OnUnlink()
 {
-	FMosaikkWidgetUtils::ClearHostCanvas();
-	SectionToMosaikkComponentEvalDataMap.Reset();
+	UMosaikkHostCanvasManager::Get().ClearHostCanvas();
+
+	for (const auto& Entry : SectionEvalDataMap)
+	{
+		Entry.Value.WidgetPtr->MarkAsGarbage();
+	}
+
+	SectionEvalDataMap.Reset();
 }
 
 void UMovieSceneMosaikkEntitySystem::OnSchedulePersistentTasks(UE::MovieScene::IEntitySystemScheduler* TaskScheduler)
@@ -162,16 +182,46 @@ void UMovieSceneMosaikkEntitySystem::OnSchedulePersistentTasks(UE::MovieScene::I
 	.Schedule_PerAllocation<FEvaluateMosaikk>(&Linker->EntityManager, TaskScheduler, this);
 }
 
-FMosaikkComponentEvaluationData* UMovieSceneMosaikkEntitySystem::GetMosaikkComponentEvalData(const FObjectKey& InKey)
+void UMovieSceneMosaikkEntitySystem::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
-	return SectionToMosaikkComponentEvalDataMap.Find(InKey);
+	Super::AddReferencedObjects(InThis, Collector);
+#if WITH_EDITOR
+	UMovieSceneMosaikkEntitySystem* This = CastChecked<UMovieSceneMosaikkEntitySystem>(InThis);
+	for (auto& Entry : This->SectionEvalDataMap)
+	{
+		Collector.AddReferencedObject(Entry.Value.WidgetPtr);
+	}
+#endif
 }
 
-void UMovieSceneMosaikkEntitySystem::AddNewWidget(const FObjectKey& InKey, UUserWidget* InWidget)
+FMosaikkComponentEvaluationData* UMovieSceneMosaikkEntitySystem::GetMosaikkComponentEvalData(const FObjectKey& InKey)
 {
-	FMosaikkComponentEvaluationData Data;
-	Data.Widget = InWidget;
-	SectionToMosaikkComponentEvalDataMap.Add(InKey, Data);
+	return SectionEvalDataMap.Find(InKey);
+}
 
-	FMosaikkWidgetUtils::PushWidgetToHostCanvas(InWidget);
+void UMovieSceneMosaikkEntitySystem::AddSectionWidget(const FObjectKey& InKey, UUserWidget* InWidget)
+{
+	SectionEvalDataMap.Add(InKey, FMosaikkComponentEvaluationData(InWidget));
+
+	UMosaikkHostCanvasManager::Get().PushWidgetToHostCanvas(InWidget);
+}
+
+void UMovieSceneMosaikkEntitySystem::RemoveSectionWidget(const FObjectKey& InKey)
+{
+	auto CompEvalData = GetMosaikkComponentEvalData(InKey);
+	if (CompEvalData == nullptr)
+	{
+		return;
+	}
+
+	UUserWidget* WidgetToRemove = CompEvalData->WidgetPtr.Get();
+	UMosaikkHostCanvasManager::Get().RemoveWidgetFromHostCanvas(WidgetToRemove);
+	RemoveSectionWidgetEntry(InKey);
+
+	WidgetToRemove->MarkAsGarbage();
+}
+
+void UMovieSceneMosaikkEntitySystem::RemoveSectionWidgetEntry(const FObjectKey& InKey)
+{
+	SectionEvalDataMap.Remove(InKey);
 }
